@@ -424,3 +424,16 @@ Parameters:
 Returns:  The array of values made into an object containing keys mapped to true.
 
 This function takes in an input array of values and prepares them for use as values for a "select" key in a field.  The direct use of this function is no longer considered to be best practice since FlexForms supports a "default" key-value pair for each field.  Less code equates to fewer problems.
+
+FlexForms.IsEmptyObject(obj)
+----------------------------
+
+Category:  Miscellaneous
+
+Parameters:
+
+* obj - An object to check to see if it is empty.
+
+Returns:  A boolean of true if the object does not have any properties, false otherwise.
+
+This function returns whether or not the object is empty.

@@ -637,6 +637,15 @@
 			return result;
 		};
 
+		$this.IsEmptyObject = function(obj) {
+			for (var x in obj)
+			{
+				if (obj.hasOwnProperty(x))  return false;
+			}
+
+			return true;
+		};
+
 		var ProcessField = function(state, num, field, id) {
 			if (typeof field === 'string')
 			{
@@ -726,7 +735,7 @@
 					}
 					else if (field.type === 'checkbox')
 					{
-						if (!field.hasOwnProperty('check') && field.hasOwnProperty('value'))  field.check = (state.request[field.name] === field.value ? true : field.default);
+						if (!field.hasOwnProperty('check') && field.hasOwnProperty('value'))  field.check = (state.request[field.name] === field.value ? true : ($this.IsEmptyObject(state.request) ? field.default : false));
 					}
 					else if (!field.hasOwnProperty('value'))
 					{
