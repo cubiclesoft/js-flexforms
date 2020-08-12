@@ -107,7 +107,7 @@
 			formwrap: null
 		};
 
-		elems.title.innerHTML = EscapeHTML($this.settings.title);
+		elems.title.innerHTML = EscapeHTML(Translate($this.settings.title));
 
 		elems.titlewrap.appendChild(elems.title);
 		if ($this.settings.onclose || $this.settings.backgroundcloses)  elems.titlewrap.appendChild(elems.closebutton);
