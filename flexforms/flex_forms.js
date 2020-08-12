@@ -791,7 +791,7 @@
 						stylewidth = (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '');
 						styleheight = (field.hasOwnProperty('height') ? ' style="height: ' + EscapeHTML(field.height) + ';"' : '');
 
-						if (!field.hasOwnProperty('select'))  field.select = array();
+						if (!field.hasOwnProperty('select'))  field.select = {};
 						else if (typeof field.select === 'string')
 						{
 							var tempselect = {};
