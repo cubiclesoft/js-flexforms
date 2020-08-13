@@ -8,7 +8,7 @@
 
 .ff_dialogwrap .ff_dialog_measure_em_size { display: inline-block; position: fixed; left: -9999px; width: 1em; height: 1em; }
 
-.ff_dialogwrap .ff_dialog_innerwrap { border: 1px solid #AAAAAA; background-color: #FFFFFF; position: relative; overflow: hidden; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+.ff_dialogwrap .ff_dialog_innerwrap { border: 1px solid #AAAAAA; background-color: #FFFFFF; position: relative; overflow: hidden; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; max-height: 90vh; }
 .ff_dialogwrap.ff_dialog_focused { -webkit-box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); -moz-box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); }
 .ff_dialogwrap.ff_dialog_focused .ff_dialog_innerwrap { border: 1px solid #0063B1; }
 
@@ -33,6 +33,8 @@
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem { margin-top: 1.1em; }
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem:first-child { margin-top: 0; }
 
+.ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem .formitemdata select { font-size: 1.0em; }
+
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap { margin-top: 1.1em; }
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap { border-collapse: collapse; width: 100%; }
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap > tbody > tr > td { padding: 1.0em 1.0em 0 0; vertical-align: top; }
@@ -48,4 +50,4 @@
 .ff_dialogwrap.ff_dialogwrap_small .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap > tbody > tr > td { display: block; padding: 0; margin-top: 1.0em; max-width: 100%; }
 .ff_dialogwrap.ff_dialogwrap_small .ff_formwrap .ff_formwrapinner .formfieldsresponsive .fieldtablewrap > table.rowwrap > tbody > tr > td:last-child { display: none; }
 
-.ff_dialog_overlay { position: fixed; left: 0; right: 0; width: 100%; height: 100%; z-index: 10000; }
+.ff_dialog_overlay { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 10000; }
