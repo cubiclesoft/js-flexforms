@@ -627,6 +627,14 @@
 			// Let form handlers finalize other field types.
 			DispatchEvent('finalize', state);
 
+			// Focus on an autofocus element.
+			var focusnode = formwrap.querySelector('[autofocus]');
+			if (focusnode)
+			{
+				focusnode.focus();
+				focusnode.select();
+			}
+
 			return formwrap;
 		};
 
@@ -762,7 +770,7 @@
 					case 'password':
 					{
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '><input class="text" type="' + field.type + '" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '" /></div>';
+						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '><input class="text" type="' + field.type + '" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.focus ? ' autofocus' : '') + ' /></div>';
 						state.html += '</div>';
 
 						break;
@@ -771,7 +779,7 @@
 					{
 						state.html += '<div class="formitemdata">';
 						state.html += '<div class="checkboxitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '>';
-						state.html += '<input class="checkbox" type="checkbox" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.check ? ' checked' : '') + ' />';
+						state.html += '<input class="checkbox" type="checkbox" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.check ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
 						state.html += ' <label for="' + EscapeHTML(id) + '">' + EscapeHTML($this.Translate(field.display)) + '</label>';
 						state.html += '</div>';
 						state.html += '</div>';
@@ -822,7 +830,7 @@
 										var id2 = EscapeHTML(idbase + (idnum ? '_' + idnum : ''));
 
 										state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + '>';
-										state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(name2) + '"' + (field.select.hasOwnProperty(name2) ? ' checked' : '') + ' />';
+										state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(name2) + '"' + (field.select.hasOwnProperty(name2) ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
 										state.html += ' <label for="' + id2 + '">' + EscapeHTML(name) + ' - ' + (value2 == '' ? '&nbsp;' : EscapeHTML($this.Translate(value2))) + '</label>';
 										state.html += '</div>';
 
@@ -834,7 +842,7 @@
 									var id2 = EscapeHTML(idbase + (idnum ? '_' + idnum : ''));
 
 									state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + '>';
-									state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(name) + '"' + (field.select.hasOwnProperty(name) ? ' checked' : '') + ' />';
+									state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(name) + '"' + (field.select.hasOwnProperty(name) ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
 									state.html += ' <label for="' + id2 + '">' + (value == '' ? '&nbsp;' : EscapeHTML($this.Translate(value))) + '</label>';
 									state.html += '</div>';
 
@@ -845,7 +853,7 @@
 						else
 						{
 							state.html += '<div class="selectitemwrap"' + stylewidth + '>';
-							state.html += '<select class="' + (field.multiple ? 'multi' : 'single') + '" id="' + EscapeHTML(idbase) + '" name="' + EscapeHTML(field.name + (field.multiple ? '[]' : '')) + '"' + (field.multiple ? ' multiple' : '') + styleheight + '>';
+							state.html += '<select class="' + (field.multiple ? 'multi' : 'single') + '" id="' + EscapeHTML(idbase) + '" name="' + EscapeHTML(field.name + (field.multiple ? '[]' : '')) + '"' + (field.multiple ? ' multiple' : '') + styleheight + (field.focus ? ' autofocus' : '') + '>';
 
 							for (var x = 0; x < field.options.length; x ++)
 							{
@@ -888,7 +896,7 @@
 						styleheight = (field.hasOwnProperty('height') ? ' style="height: ' + EscapeHTML(field.height) + ';"' : '');
 
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="textareawrap"' + stylewidth + '><textarea class="text"' + styleheight + ' id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" rows="5" cols="50">' + EscapeHTML(field.value) + '</textarea></div>';
+						state.html += '<div class="textareawrap"' + stylewidth + '><textarea class="text"' + styleheight + ' id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" rows="5" cols="50"' + (field.focus ? ' autofocus' : '') + '>' + EscapeHTML(field.value) + '</textarea></div>';
 						state.html += '</div>';
 
 						break;
@@ -1057,7 +1065,7 @@
 					case 'file':
 					{
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '><input class="text" type="file" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + (field.multiple ? '[]' : '') + '"' + (field.multiple ? ' multiple' : '') + (typeof field.accept === 'string' ? ' accept="' + EscapeHTML(field.accept) + '"' : '') + ' /></div>';
+						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '><input class="text" type="file" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + (field.multiple ? '[]' : '') + '"' + (field.multiple ? ' multiple' : '') + (typeof field.accept === 'string' ? ' accept="' + EscapeHTML(field.accept) + '"' : '') + (field.focus ? ' autofocus' : '') + ' /></div>';
 						state.html += '</div>';
 
 						break;
