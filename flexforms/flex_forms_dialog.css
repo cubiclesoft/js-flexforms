@@ -31,7 +31,7 @@
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formsubmit input { font-weight: normal; min-width: 7.5em; margin-left: 0.2em; margin-right: 0.2em; }
 
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem { margin-top: 1.1em; }
-.ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem:first-child { margin-top: 0; }
+.ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap > tbody > tr > td .formitem { margin-top: 0; }
 
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem .formitemdata select { font-size: 1.0em; }
 
