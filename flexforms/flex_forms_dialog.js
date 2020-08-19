@@ -138,10 +138,10 @@
 			elems.formnode.addEventListener('submit', SubmitHandler);
 		};
 
-		$this.UpdateContent();
-
 		if ($this.settings.modal)  parentelem.appendChild(elems.overlay);
 		parentelem.appendChild(elems.mainwrap);
+
+		$this.UpdateContent();
 
 		// Set up focusing rules.
 		var lastactiveelem = document.activeElement;
@@ -202,7 +202,18 @@
 				elems.mainwrap.classList.add('ff_dialog_focused');
 
 				// Move this dialog to the top of the stack.
-				if (!hasfocus)  parentelem.appendChild(elems.mainwrap);
+				if (!hasfocus)
+				{
+					window.removeEventListener('focus', MainWrapFocusHandler, true);
+
+					lastactiveelem.focus();
+
+					parentelem.appendChild(elems.mainwrap);
+
+					elems.mainwrap.focus();
+
+					window.addEventListener('focus', MainWrapFocusHandler, true);
+				}
 
 				hasfocus = true;
 			}
@@ -299,7 +310,15 @@
 		var LoadedHandler = function() {
 			$this.CenterDialog();
 
-			elems.mainwrap.focus();
+			elems.mainwrap.classList.add('ff_dialog_focused');
+
+			// Bypass the hasfocus checks in MainWrapFocusHandler.
+			hasfocus = true;
+
+			var node = document.activeElement;
+			while (node && node !== elems.mainwrap)  node = node.parentNode;
+
+			if (node !== elems.mainwrap)  elems.mainwrap.focus();
 		};
 
 		window.FlexForms.addEventListener('done', LoadedHandler);
