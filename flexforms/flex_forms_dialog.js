@@ -275,6 +275,7 @@
 
 			elems.mainwrap.style.left = currleft + 'px';
 			elems.mainwrap.style.top = currtop + 'px';
+			elems.mainwrap.style.height = (dialogheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom)) + 'px';
 
 			DispatchEvent('position', elems.mainwrap);
 		};
