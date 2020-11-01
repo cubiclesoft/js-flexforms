@@ -172,6 +172,17 @@ Returns:  Nothing.
 
 This function regenerates the FlexForms form and updates the dialog in-place.  Useful for emitting error messages after validating submitted information.
 
+FlexForms.Dialog.GetElements()
+------------------------------
+
+Category:  Miscellaneous
+
+Parameters:  None.
+
+Returns:  The internal elems object for the widget.
+
+This function returns the internal elements object.  While element keys are not likely to change, there is no guarantee as this is an internal structure.
+
 FlexForms.Dialog.UpdateSizes()
 ------------------------------
 
