@@ -37,9 +37,9 @@ Example usage:
 				multiple: true,
 				name: 'test_select',
 				options: [
-					{ name: 'Test 1', value: 'Test 1' },
-					{ name: 'Test 2', value: 'Test 2' },
-					{ name: 'Test 3', value: 'Test 3' },
+					{ key: 'Test 1', display: 'Test 1' },
+					{ key: 'Test 2', display: 'Test 2' },
+					{ key: 'Test 3', display: 'Test 3' },
 				],
 				default: { 'Test 1': true, 'Test 3': true }
 			}
@@ -48,7 +48,7 @@ Example usage:
 		submitname: 'test_submit'
 	};
 
-	var formwrap = FlexForms.Generate(elems.innerwrap, $this.settings.content);
+	var formwrap = FlexForms.Generate(document.body, options);
 	var formnode = formwrap.querySelector('form');
 
 	var SubmitHandler = function(e) {

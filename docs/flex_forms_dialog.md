@@ -41,9 +41,9 @@ Example usage:
 					multiple: true,
 					name: 'test_select',
 					options: [
-						{ name: 'Test 1', value: 'Test 1' },
-						{ name: 'Test 2', value: 'Test 2' },
-						{ name: 'Test 3', value: 'Test 3' },
+						{ key: 'Test 1', display: 'Test 1' },
+						{ key: 'Test 2', display: 'Test 2' },
+						{ key: 'Test 3', display: 'Test 3' },
 					],
 					default: { 'Test 1': true, 'Test 3': true }
 				}
@@ -52,16 +52,20 @@ Example usage:
 			submitname: 'test_submit'
 		},
 
-		onsubmit: function(formvars, formnode, e) {
+		onsubmit: function(formvars, formnode, e, lastactiveelem) {
 console.log(formvars);
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		},
 
-		onclose: function() {
+		onclose: function(lastactiveelem) {
 console.log('Close');
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		}
 	};
 
@@ -161,6 +165,17 @@ Returns:  A boolean of true if there are event listeners for the specified event
 
 This function checks for the existence of an event and whether or not there are any listeners registered for the event.
 
+FlexForms.Dialog.HasErrors()
+----------------------------
+
+Category:  Forms
+
+Parameters:  None.
+
+Returns:  A boolean of true if there are keys set in the settings errors object, false otherwise.
+
+This function determines whether or not the settings errors object has any keys set.  A useful helper function for handling complex dialog validation logic.
+
 FlexForms.Dialog.UpdateContent()
 --------------------------------
 
@@ -237,3 +252,44 @@ Parameters:  None.
 Returns:  Nothing.
 
 This function cleans up the DOM and destroys the instance.  Calling other functions after this function will result in an error or undefined behavior.
+
+FlexForms.Dialog.Alert(title, content, closecallback, timeout)
+--------------------------------------------------------------
+
+Category:  Dialog
+
+Parameters:
+
+* title - A string containing a title.
+* content - A string containing the message to display OR an object containing FlexForms.Generate() options.
+* closecallback - An optional function to call upon closing the dialog.
+* timeout - An optional integer containing the amount of time to display the dialog before automatically closing it.
+
+Returns:  The FlexForms.Dialog instance that is created.
+
+This helper function provides approximate equivalence to window.alert() to display a dialog title, message, and an OK button in a FlexForms.Dialog.
+
+FlexForms.Dialog.Confirm(title, content, yesbutton, nobutton, yescallback, nocallback, closecallback)
+-----------------------------------------------------------------------------------------------------
+
+Category:  Dialog
+
+Parameters:
+
+* title - A string containing a title.
+* content - A string containing the message to display OR an object containing FlexForms.Generate() options.
+* yesbutton - A string containing the text of the "Yes/OK" button.  This is the default button clicked when pressing Enter/Return.
+* nobutton - A string containing the text of the "No/Cancel" button.
+* yescallback - An optional function to call when the "Yes/OK" button is clicked.  Can be the same as the other callbacks.
+* nocallback - An optional function to call when the "No/Cancel" button is clicked.  Can be the same as the other callbacks.
+* closecallback - An optional function to call when the close button is clicked.  Can be the same as the other callbacks.
+
+Returns:  The FlexForms.Dialog instance that is created.
+
+This helper function provides approximate equivalence to window.confirm() to display a dialog title, message, and Yes/No buttons in a FlexForms.Dialog.
+
+Each callback receives a type parameter as follows:
+
+* -1 - The close button was clicked.
+* 0 - The No/Cancel button was clicked.
+* 1 - The Yes/OK button was clicked.

@@ -21,6 +21,7 @@ Features
 * Highly extensible.
 * AJAX-ready.
 * FlexForms.Dialog for clean, easy presentation of in-page forms and data processing.
+* FlexForms.Dialog.Alert() and FlexForms.Dialog.Confirm() dialogs to replace window.alert() and window.confirm() respectively.
 * Has a liberal open source license.  MIT or LGPL, your choice.
 * Designed for relatively painless integration into your project.
 * Sits on GitHub for all of that pull request and issue tracker goodness to easily submit changes and ideas respectively.
@@ -64,9 +65,9 @@ The most common use-case is to use the FlexForms.Dialog class to generate and di
 					multiple: true,
 					name: 'test_select',
 					options: [
-						{ name: 'Test 1', value: 'Test 1' },
-						{ name: 'Test 2', value: 'Test 2' },
-						{ name: 'Test 3', value: 'Test 3' },
+						{ key: 'Test 1', display: 'Test 1' },
+						{ key: 'Test 2', display: 'Test 2' },
+						{ key: 'Test 3', display: 'Test 3' },
 					],
 					default: { 'Test 1': true, 'Test 3': true }
 				}
@@ -75,23 +76,59 @@ The most common use-case is to use the FlexForms.Dialog class to generate and di
 			submitname: 'test_submit'
 		},
 
-		onsubmit: function(formvars, formnode, e) {
+		onsubmit: function(formvars, formnode, e, lastactiveelem) {
 console.log(formvars);
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		},
 
-		onclose: function() {
+		onclose: function(lastactiveelem) {
 console.log('Close');
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		}
 	};
 
-	var dlg = FlexForms.Dialog(document.body, options);
+	window.MainDialog = function() {
+		var dlg = FlexForms.Dialog(document.body, options);
+
+		return false;
+	};
+
+	window.TempAlertDialog = function() {
+		FlexForms.Dialog.Alert('An Error Occurred', 'Woah!  An unexpected error occurred.  Try again later.', function() { console.log('Closed'); }, 10000);
+
+		return false;
+	};
+
+	window.ConfirmDeleteDialog = function() {
+		var DeleteContentCallback = function(type) {
+console.log(type);
+		};
+
+		FlexForms.Dialog.Confirm('Delete Content', 'Are you sure you want to delete the content?', 'Yes', 'No', DeleteContentCallback, DeleteContentCallback);
+
+		return false;
+	};
 })();
 </script>
+
+<p><a href="#" onclick="return MainDialog();">Display a FlexForms.Dialog()</a></p>
+<p><a href="#" onclick="return TempAlertDialog();">Display a FlexForms.Dialog.Alert() for 10 seconds</a></p>
+<p><a href="#" onclick="return ConfirmDeleteDialog();">Display a FlexForms.Dialog.Confirm()</a></p>
 ```
+
+Projects
+--------
+
+Here are a couple of projects that use FlexForms:
+
+* [Offline Forms](https://github.com/cubiclesoft/offline-forms) - A pure client side form designer and data gathering tool for use in areas with spotty or unknown Internet connectivity.
+* [PHP File Manager](https://github.com/cubiclesoft/php-filemanager) - A powerful uploader tool and file manager built specifically for the purpose of embedding into any application out of the box.
 
 Documentation
 -------------

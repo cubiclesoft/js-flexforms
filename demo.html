@@ -52,20 +52,44 @@ body { font-family: Verdana, Arial, Helvetica, sans-serif; position: relative; c
 			submitname: 'test_submit'
 		},
 
-		onsubmit: function(formvars, formnode, e) {
+		onsubmit: function(formvars, formnode, e, lastactiveelem) {
 console.log(formvars);
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		},
 
-		onclose: function() {
+		onclose: function(lastactiveelem) {
 console.log('Close');
 
 			this.Destroy();
+
+			lastactiveelem.focus();
 		}
 	};
 
-	var dlg = FlexForms.Dialog(document.body, options);
+	window.MainDialog = function() {
+		var dlg = FlexForms.Dialog(document.body, options);
+
+		return false;
+	};
+
+	window.TempAlertDialog = function() {
+		FlexForms.Dialog.Alert('An Error Occurred', 'Woah!  An unexpected error occurred.  Try again later.', function() { console.log('Closed'); }, 10000);
+
+		return false;
+	};
+
+	window.ConfirmDeleteDialog = function() {
+		var DeleteContentCallback = function(type) {
+console.log(type);
+		};
+
+		FlexForms.Dialog.Confirm('Delete Content', 'Are you sure you want to delete the content?', 'Yes', 'No', DeleteContentCallback, DeleteContentCallback);
+
+		return false;
+	};
 
 	// Verify that there aren't any leaked globals.
 	setTimeout(function() {
@@ -87,5 +111,9 @@ console.log('Close');
 	}, 15000);
 })();
 </script>
+
+<p><a href="#" onclick="return MainDialog();">Display a FlexForms.Dialog()</a></p>
+<p><a href="#" onclick="return TempAlertDialog();">Display a FlexForms.Dialog.Alert() for 10 seconds</a></p>
+<p><a href="#" onclick="return ConfirmDeleteDialog();">Display a FlexForms.Dialog.Confirm()</a></p>
 </body>
 </html>
