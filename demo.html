@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<head><title>CubicleSoft Javascript Flex Forms Demo</title></head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+<head><title>CubicleSoft Javascript FlexForms Demo</title></head>
 <body>
 <style type="text/css">
 body { font-family: Verdana, Arial, Helvetica, sans-serif; position: relative; color: #222222; font-size: 1.0em; }
@@ -13,6 +13,15 @@ body { font-family: Verdana, Arial, Helvetica, sans-serif; position: relative; c
 
 <script type="text/javascript">
 (function() {
+	var logs = [];
+	var AppendLog = function(msg) {
+		while (logs.length >= 10)  logs.shift();
+
+		logs.push('<i>[' + FlexForms.EscapeHTML(new Date().toLocaleString()) + ']</i> ' + FlexForms.EscapeHTML(msg));
+
+		document.getElementById('lastlog').innerHTML = logs.join('<br>');
+	};
+
 	var options = {
 		title: 'Dialog Title',
 
@@ -52,8 +61,35 @@ body { font-family: Verdana, Arial, Helvetica, sans-serif; position: relative; c
 			submitname: 'test_submit'
 		},
 
+		onupdatecontent: function(formnode) {
+			AppendLog('Update content');
+		},
+
+		onsuspend: function() {
+			AppendLog('Suspend');
+		},
+
+		onresume: function() {
+			AppendLog('Resume');
+		},
+
+		onposition: function(formnode) {
+		},
+
+		onlockresize: function() {
+			AppendLog('Lock resize');
+		},
+
+		onunlockresize: function() {
+			AppendLog('Unlock resize');
+		},
+
+		onresized: function(formnode) {
+			AppendLog('Resized');
+		},
+
 		onsubmit: function(formvars, formnode, e, lastactiveelem) {
-console.log(formvars);
+			AppendLog('Submit:  ' + JSON.stringify(formvars));
 
 			this.Destroy();
 
@@ -61,11 +97,15 @@ console.log(formvars);
 		},
 
 		onclose: function(lastactiveelem) {
-console.log('Close');
+			AppendLog('Close');
 
 			this.Destroy();
 
 			lastactiveelem.focus();
+		},
+
+		ondestroy: function() {
+			AppendLog('Destroy');
 		}
 	};
 
@@ -76,14 +116,14 @@ console.log('Close');
 	};
 
 	window.TempAlertDialog = function() {
-		FlexForms.Dialog.Alert('An Error Occurred', 'Woah!  An unexpected error occurred.  Try again later.', function() { console.log('Closed'); }, 10000);
+		FlexForms.Dialog.Alert('An Error Occurred', 'Woah!  An unexpected error occurred.  Try again later.', function() { AppendLog('Closed'); }, 10000);
 
 		return false;
 	};
 
 	window.ConfirmDeleteDialog = function() {
 		var DeleteContentCallback = function(type) {
-console.log(type);
+			AppendLog('Button ' + type);
 		};
 
 		FlexForms.Dialog.Confirm('Delete Content', 'Are you sure you want to delete the content?', 'Yes', 'No', DeleteContentCallback, DeleteContentCallback);
@@ -112,8 +152,42 @@ console.log(type);
 })();
 </script>
 
+<p>This is a fully functioning demo of <a href="https://github.com/cubiclesoft/js-flexforms">CubicleSoft FlexForms Dialog</a>.</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<div style="position: absolute: height: 400px; width: 100%;"></div>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+
 <p><a href="#" onclick="return MainDialog();">Display a FlexForms.Dialog()</a></p>
 <p><a href="#" onclick="return TempAlertDialog();">Display a FlexForms.Dialog.Alert() for 10 seconds</a></p>
 <p><a href="#" onclick="return ConfirmDeleteDialog();">Display a FlexForms.Dialog.Confirm()</a></p>
+
+<p id="lastlog"></p>
+
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+<p>Blah</p>
+
 </body>
 </html>

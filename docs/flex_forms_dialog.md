@@ -94,16 +94,26 @@ The options object can contain the following:
 * backgroundcloses - A boolean indicating whether or not clicking off the dialog will close the dialog (Default is false).
 * move - A boolean indicating whether or not the dialog can be moved by dragging the title bar (Default is true).
 * resize - A boolean indicating whether or not the dialog can be resized by dragging the edges (Default is true).
+* autowidth - An optional string containing the CSS width to size the dialog to (Default is null).
 * title - A string containing a title to use for the title bar of the dialog (Default is '').
 * content - An object containing FlexForms.Generate() options (Default is an empty object).
 * errors - An object containing FlexForms.Generate() errors (Default is an empty object).
 * request - An object containing FlexForms.Generate() request variables (Default is an empty object).
+* onupdatecontent(formelem) - An optional callback that is called whenever the dialog form content is updated (Default is null).
+	* formelem - A DOM element pointing to the form.
+* onsuspend() - An optional callback that is called when the dialog is suspended by a modal dialog (Default is null).
+* onresume() - An optional callback that is called when the dialog is resumed after having been previously suspended (Default is null).
 * onposition(elem) - An optional callback that is called whenever the position or size of the dialog has changed (Default is null).
 	* elem - The main DOM element of the dialog.
-* onsubmit(formdata, formelem, e) - An optional callback that is called when a form submission happens (Default is null).
+* onlockresize() - An optional callback that is called when resizing is temporarily locked via LockResize() (Default is null).
+* onunlockresize() - An optional callback that is called when resizing is resumed via UnlockResize() (Default is null).
+* onresized(elem) - An optional callback that is called when the dialog has been resized (Default is null).
+	* elem - The main DOM element of the dialog.
+* onsubmit(formdata, formelem, e, lastactiveelem) - An optional callback that is called when a form submission happens (Default is null).
 	* formdata - An object containing all the field name/value pairs of submitted data including the button that was pressed.
 	* formelem - A DOM element pointing to the form.
 	* e - An event object containing the submit event.
+	* lastactiveelem - A DOM element pointing to the last active element before the dialog was created.
 * onclose() - An optional callback that is called when the dialog should close (Default is null).
 * ondestroy() - An optional callback that is called when the dialog instance is destroyed (Default is null).
 * langmap - An object containing translation strings.  Support exists for most of the user interface (Default is an empty object).
@@ -114,6 +124,17 @@ FlexForms.Dialog.settings
 Category:  Settings
 
 The `settings` object contains the settings for the instance.  Changing the settings after creating the instance will have little to no effect.
+
+FlexForms.Dialog.GetID()
+------------------------
+
+Category:  Informational
+
+Parameters:  None.
+
+Returns:  The unique integer ID of the FlexForms Dialog.
+
+This function returns the ID of the dialog.
 
 FlexForms.Dialog.addEventListener(eventname, callback)
 ------------------------------------------------------
@@ -131,6 +152,7 @@ This function presents a familiar function for registering for custom events emi
 
 Known events:
 
+* updatecontent - Dispatched when the dialog content is updated via FlexForms.Dialog.UpdateContent().
 * position - Dispatched when the dialog position or size changes.
 * submit - Dispatched when a dialog submit button is pressed or the form is submitted.
 * close - Dispatched when the dialog should close.
@@ -165,6 +187,28 @@ Returns:  A boolean of true if there are event listeners for the specified event
 
 This function checks for the existence of an event and whether or not there are any listeners registered for the event.
 
+FlexForms.Dialog.GetFlexFormsObjects()
+--------------------------------------
+
+Category:  Modules
+
+Parameters:  None.
+
+Returns:  An array of FlexForms objects.
+
+This function returns the FlexForms objects created by modules during UpdateContent().
+
+FlexForms.Dialog.GetElements()
+------------------------------
+
+Category:  Miscellaneous
+
+Parameters:  None.
+
+Returns:  The internal elems object for the widget.
+
+This function returns the internal elements object.  While element keys are not likely to change, there is no guarantee as this is an internal structure.
+
 FlexForms.Dialog.HasErrors()
 ----------------------------
 
@@ -187,16 +231,64 @@ Returns:  Nothing.
 
 This function regenerates the FlexForms form and updates the dialog in-place.  Useful for emitting error messages after validating submitted information.
 
-FlexForms.Dialog.GetElements()
+FlexForms.Dialog.Suspend()
+--------------------------
+
+Category:  Miscellaneous
+
+Parameters:  None.
+
+Returns:  Nothing.
+
+This function suspends the dialog and detaches it from the DOM (but NOT the modal overlay) until it is resumed later.  Multiple calls increase the refcount.  Automatically called when creating a new modal dialog.
+
+FlexForms.Dialog.Resume()
+-------------------------
+
+Category:  Miscellaneous
+
+Parameters:  None.
+
+Returns:  Nothing.
+
+This function attaches the dialog to the DOM and resumes it if it is suspended.  Multiple calls decrease the refcount until it reaches zero.  Automatically called when closing a modal dialog that previously suspended the dialog.
+
+FlexForms.Dialog.IsSuspended()
 ------------------------------
 
 Category:  Miscellaneous
 
 Parameters:  None.
 
-Returns:  The internal elems object for the widget.
+Returns:  An integer containing whether or not the dialog is suspended.
 
-This function returns the internal elements object.  While element keys are not likely to change, there is no guarantee as this is an internal structure.
+This function returns whether or not the dialog is suspended.
+
+FlexForms.Dialog.LockResize(name)
+---------------------------------
+
+Category:  Position and Size
+
+Parameters:
+
+* name - A string containing the name of the lock requestor.
+
+Returns:  Nothing.
+
+This function locks automatic resizing of the dialog until all locks have been released.  The 'name' parameter allows each holder of a resize lock to independently do reference counting.  Multiple calls with the same name increase the refcount.  Primarily used by FlexForms modules.
+
+FlexForms.Dialog.UnlockResize(name)
+-----------------------------------
+
+Category:  Position and Size
+
+Parameters:
+
+* name - A string containing the name of the lock requestor.
+
+Returns:  Nothing.
+
+This function unlocks a previously obtained lock on dialog resizing.  Multiple calls with the same name decrease the refcount until it reaches zero.  Once all locks have been removed, any resizing operations that were queued during the lock(s) are then run.
 
 FlexForms.Dialog.UpdateSizes()
 ------------------------------
@@ -207,25 +299,29 @@ Parameters:  None.
 
 Returns:  Nothing.
 
-This function adjusts the dialog and recalculates internal position and size tracking information.  Used by SnapToScreen() and CenterDialog().
+This function adjusts the dialog and recalculates internal position and size tracking information.  Used by SnapToScreen() and CenterDialog().  Limited to one call per animation frame.
 
-FlexForms.Dialog.SnapToScreen()
--------------------------------
+FlexForms.Dialog.SnapToScreen(resetscroll)
+------------------------------------------
 
 Category:  Position and Size
 
-Parameters:  None.
+Parameters:
+
+* resetscroll - An optional boolean that specifies whether or not to scroll to the top.
 
 Returns:  Nothing.
 
 This function snaps the dialog so that it fits on the screen.  Generally only called if the dialog has been moved or resized.
 
-FlexForms.Dialog.CenterDialog()
--------------------------------
+FlexForms.Dialog.CenterDialog(resetscroll)
+------------------------------------------
 
 Category:  Position and Size
 
-Parameters:  None.
+Parameters:
+
+* resetscroll - An optional boolean that specifies whether or not to scroll to the top.
 
 Returns:  Nothing.
 

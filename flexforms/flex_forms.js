@@ -1,8 +1,136 @@
 // FlexForms Javascript base and Designer classes.
-// (C) 2022 CubicleSoft.  All Rights Reserved.
+// (C) 2025 CubicleSoft.  All Rights Reserved.
 
 (function() {
 	if (window.hasOwnProperty('FlexForms'))  return;
+
+	// Basic XMLHttpRequest (XHR) wrapper.
+	var PrepareXHR = function(options) {
+		if (!(this instanceof PrepareXHR))  return new PrepareXHR(options);
+
+		var sent = false;
+		var $this = this;
+
+		$this.xhr = new XMLHttpRequest();
+
+		var RequestEndedHandler = function(e) {
+			if ($this)  $this.xhr = null;
+		};
+
+		$this.xhr.addEventListener('loadend', RequestEndedHandler);
+
+		if (options.onsuccess || options.onload)  $this.xhr.addEventListener('load', options.onsuccess || options.onload);
+		if (options.onerror)
+		{
+			$this.xhr.addEventListener('error', options.onerror);
+
+			if (!options.onabort)  $this.xhr.addEventListener('abort', options.onerror);
+			if (!options.ontimeout)  $this.xhr.addEventListener('timeout', options.onerror);
+		}
+		if (options.onabort)  $this.xhr.addEventListener('abort', options.onabort);
+		if (options.onloadstart)  $this.xhr.addEventListener('loadstart', options.onloadstart);
+		if (options.onprogress)  $this.xhr.addEventListener('progress', options.onprogress);
+		if (options.ontimeout)  $this.xhr.addEventListener('timeout', options.ontimeout);
+		if (options.onloadend)  $this.xhr.addEventListener('loadend', options.onloadend);
+
+
+		// Public functions.
+
+		// Transparently route event listener registration/removals.
+		$this.upload = {};
+		$this.upload.addEventListener = function(type, listener, options) {
+			if (!sent && $this && $this.xhr)  $this.xhr.upload.addEventListener(type, listener, options);
+		};
+
+		$this.upload.removeEventListener = function(type, listener, options) {
+			if ($this && $this.xhr)  $this.xhr.upload.removeEventListener(type, listener, options);
+		};
+
+		$this.addEventListener = function(type, listener, options) {
+			if (!sent && $this && $this.xhr)  $this.xhr.addEventListener(type, listener, options);
+		};
+
+		$this.removeEventListener = function(type, listener, options) {
+			if ($this && $this.xhr)  $this.xhr.removeEventListener(type, listener, options);
+		};
+
+		// Returns the calculated method.
+		$this.GetMethod = function() {
+			return (options.method || (options.params || options.body ? 'POST' : 'GET'));
+		};
+
+		$this.PrepareBody = function() {
+			if (options.body)  return options.body;
+
+			var method = $this.GetMethod();
+
+			// Build a FormData object.
+			var xhrbody = (options.params || method === 'POST' ? new FormData() : null);
+
+			if (options.params)
+			{
+				if (options.params instanceof FormData)
+				{
+					xhrbody = options.params;
+				}
+				else if (Array.isArray(options.params))
+				{
+					for (var x = 0; x < options.params.length; x++)  xhrbody.append(options.params[x].name, options.params[x].value);
+				}
+				else
+				{
+					for (var x in options.params)
+					{
+						if (options.params.hasOwnProperty(x))
+						{
+							if (typeof options.params[x] === 'string' || typeof options.params[x] === 'number')  xhrbody.append(x, options.params[x]);
+						}
+					}
+				}
+			}
+
+			return xhrbody;
+		};
+
+		$this.Send = function(xhrbody) {
+			if (sent || !$this || !$this.xhr)  return;
+
+			sent = true;
+
+			$this.xhr.open($this.GetMethod(), options.url);
+
+			// Set request headers.
+			if (options.headers)
+			{
+				for (var x in options.headers)
+				{
+					if (options.headers.hasOwnProperty(x) && typeof options.headers[x] === 'string')  $this.xhr.setRequestHeader(x, options.headers[x]);
+				}
+			}
+
+			if (!xhrbody)  xhrbody = $this.PrepareBody();
+
+			// Send the XHR request.
+			$this.xhr.send(xhrbody);
+		};
+
+		$this.Abort = function() {
+			if (!$this || !$this.xhr)  return;
+
+			var tempxhr = $this.xhr;
+
+			$this.xhr = null;
+
+			if (sent)  tempxhr.abort();
+		};
+
+		$this.Destroy = function() {
+			$this.Abort();
+
+			$this = null;
+		};
+	};
+
 
 	// FlexForms base class.
 	var FlexFormsInternal = function() {
@@ -76,7 +204,7 @@
 			DispatchEvent('done');
 		};
 
-		$this.LoadCSS = function(name, url, cssmedia) {
+		$this.LoadCSS = function(name, url, cssmedia, filever) {
 			if (cssoutput[name] !== undefined)
 			{
 				CheckEmptyAndNotify();
@@ -85,6 +213,7 @@
 			}
 
 			if (version !== '')  url += (url.indexOf('?') > -1 ? '&' : '?') + version;
+			else if (typeof filever === 'string' && filever !== '')  url += (url.indexOf('?') > -1 ? '&' : '?') + filever;
 
 			var tag = document.createElement('link');
 
@@ -101,7 +230,7 @@
 			tag.rel = 'stylesheet';
 			tag.type = 'text/css';
 			tag.href = url;
-			tag.media = (cssmedia != undefined ? cssmedia : 'all');
+			tag.media = (typeof cssmedia === 'string' ? cssmedia : 'all');
 
 			document.getElementsByTagName('head')[0].appendChild(tag);
 
@@ -170,7 +299,12 @@
 				}
 			};
 
-			s.src = jsqueue[name].src + (version === '' ? '' : (jsqueue[name].src.indexOf('?') > -1 ? '&' : '?') + version);
+			var url = jsqueue[name].src;
+
+			if (version !== '')  url += (url.indexOf('?') > -1 ? '&' : '?') + version;
+			else if (typeof jsqueue[name].version === 'string' && jsqueue[name].version !== '')  url += (url.indexOf('?') > -1 ? '&' : '?') + jsqueue[name].version;
+
+			s.src = url;
 
 			document.body.appendChild(s);
 		};
@@ -236,6 +370,7 @@
 	};
 
 	window.FlexForms = new FlexFormsInternal();
+	window.FlexForms.PrepareXHR = PrepareXHR;
 
 	window.FlexForms.Init();
 })();
@@ -253,7 +388,7 @@
 		};
 
 		return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
-	}
+	};
 
 	var FormatStr = function(format) {
 		var args = Array.prototype.slice.call(arguments, 1);
@@ -261,6 +396,31 @@
 		return format.replace(/{(\d+)}/g, function(match, number) {
 			return (typeof args[number] != 'undefined' ? args[number] : match);
 		});
+	};
+
+	var DeepClone = function(obj) {
+		if (Array.isArray(obj))
+		{
+			var result = [];
+
+			for (var x = 0; x < obj.length; x++)
+			{
+				result.push(DeepClone(obj[x]));
+			}
+
+			return result;
+		}
+
+		if (typeof obj !== 'object' || obj === null)  return obj;
+
+		var result = {};
+
+		for (var x in obj)
+		{
+			if (obj.hasOwnProperty(x))  result[x] = DeepClone(obj[x]);
+		}
+
+		return result;
 	};
 
 	var CreateNode = function(tag, classes, attrs, styles) {
@@ -421,7 +581,7 @@
 		};
 
 		$this.OutputFormCSS = function() {
-			FlexForms.LoadCSS('formcss', $this.settings.supporturl + '/flex_forms.css');
+			FlexForms.LoadCSS('formcss', $this.settings.supporturl + '/flex_forms.css', undefined, '20250818-01');
 		};
 
 		// Creates a message for insertion into the DOM.
@@ -439,6 +599,14 @@
 			messagewrap.appendChild(messagewrapinner);
 
 			return messagewrap;
+		};
+
+		// Allows FlexForms objects to save state changes to the DOM.
+		$this.Save = function(ffobjs) {
+			for (var x = 0; x < ffobjs.length; x++)
+			{
+				ffobjs[x].Save.call($this);
+			}
 		};
 
 		// Creates a Javascript object from submitted form elements for client-side use (e.g. validation).
@@ -484,8 +652,25 @@
 			return result;
 		};
 
+		// Runs FlexForms object cleanup.
+		$this.Cleanup = function(ffobjs) {
+			var tempobj;
+
+			while (ffobjs.length > 0)
+			{
+				tempobj = ffobjs.pop();
+
+				tempobj.Destroy.call($this);
+			}
+		};
+
+		// Convenience function to modify state for FlexForms objects.
+		$this.AddNewObject = function(state, ffobj) {
+			state.ffobjs.push(ffobj);
+		};
+
 		// Generates and injects HTML, CSS, and Javascript into the DOM.  Has feature parity with PHP FlexForms.
-		$this.Generate = function(parentelem, options, errors, request) {
+		$this.Generate = function(parentelem, options, errors, request, ffobjs) {
 			var state = {
 				formnum: nextform,
 				formid: $this.settings.formidbase + nextform,
@@ -496,15 +681,23 @@
 				html: '',
 				css: {},
 				js: {},
-				request: {}
+				request: {},
+				ffobjs: []
 			};
 
 			if (request)  state.request = request;
 
+			if (ffobjs && Array.isArray(ffobjs))
+			{
+				$this.Cleanup(ffobjs);
+
+				state.ffobjs = ffobjs;
+			}
+
 			nextform++;
 
 			// Deep clone the options.
-			options = JSON.parse(JSON.stringify(options));
+			options = DeepClone(options);
 
 			// Let form handlers modify the options and state.
 			DispatchEvent('init', [state, options]);
@@ -529,19 +722,7 @@
 				state.html += '<div class="formfields' + (options.fields.length === 1 && !options.fields[0]['title'] && !options.fields[0]['htmltitle'] ? ' alt' : '') + ($this.settings.responsive ? ' formfieldsresponsive' : '') + '">';
 				state.html += '<div class="formfieldsinner">';
 
-				for (var x = 0; x < options.fields.length; x++)
-				{
-					var id = 'f_js' + state.formnum + '_' + x;
-
-					if (typeof options.fields[x] !== 'string' && options.fields[x].name)
-					{
-						id += '_' + options.fields[x].name;
-
-						if (errors && errors[options.fields[x].name])  options.fields[x].error = errors[options.fields[x].name];
-					}
-
-					ProcessField(state, x, options.fields[x], id);
-				}
+				ProcessFields(state, options.fields, errors, 'f_js' + state.formnum);
 
 				// Cleanup fields.
 				if (state.insiderow)
@@ -603,7 +784,7 @@
 				{
 					if (state.css.hasOwnProperty(x) && state.css[x].mode === 'link' && (state.css[x].dependency === false || !state.css.hasOwnProperty(state.css[x].dependency)))
 					{
-						FlexForms.LoadCSS(x, state.css[x].src, (state.css[x].media ? state.css[x].media : null));
+						FlexForms.LoadCSS(x, state.css[x].src, (state.css[x].media ? state.css[x].media : undefined), (state.css[x].version ? state.css[x].version : undefined));
 
 						delete state.css[x];
 
@@ -624,6 +805,8 @@
 				if (state.js.hasOwnProperty(x))  FlexForms.AddJSQueueItem(x, state.js[x]);
 			}
 
+			FlexForms.ProcessJSQueue();
+
 			// Let form handlers finalize other field types.
 			DispatchEvent('finalize', state);
 
@@ -636,6 +819,36 @@
 			}
 
 			return formwrap;
+		};
+
+		var ProcessFields = function(state, fields, errors, idbase) {
+			for (var x = 0; x < fields.length; x++)
+			{
+				var id = idbase + '_' + x;
+
+				if (typeof fields[x] === 'function')
+				{
+					var x2 = 0, fields2;
+
+					while (Array.isArray(fields2 = fields[x](x2)))
+					{
+						ProcessFields(state, fields2, errors, id);
+
+						x2++;
+					}
+				}
+				else if (fields[x] !== null)
+				{
+					if (typeof fields[x] === 'object' && fields[x].name)
+					{
+						id += '_' + fields[x].name;
+
+						if (errors && errors[fields[x].name])  fields[x].error = errors[fields[x].name];
+					}
+
+					ProcessField(state, x, fields[x], id);
+				}
+			}
 		};
 
 		$this.GetSelectValues = function(data) {
@@ -765,7 +978,7 @@
 					case 'static':
 					{
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="staticwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '>' + EscapeHTML(field.value) + '</div>';
+						state.html += '<div class="staticwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + (field.hasOwnProperty('wrapattr') ? ' ' + field.wrapattr : '') + '>' + EscapeHTML(field.value) + '</div>';
 						state.html += '</div>';
 
 						break;
@@ -774,7 +987,7 @@
 					case 'password':
 					{
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '><input class="text" type="' + EscapeHTML(field.hasOwnProperty('subtype') ? field.subtype : field.type) + '" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.focus ? ' autofocus' : '') + ' /></div>';
+						state.html += '<div class="textitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + (field.hasOwnProperty('wrapattr') ? ' ' + field.wrapattr : '') + '><input class="text" type="' + EscapeHTML(field.hasOwnProperty('subtype') ? field.subtype : field.type) + '" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.hasOwnProperty('attr') ? ' ' + field.attr : '') + (field.focus ? ' autofocus' : '') + ' /></div>';
 						state.html += '</div>';
 
 						break;
@@ -782,8 +995,8 @@
 					case 'checkbox':
 					{
 						state.html += '<div class="formitemdata">';
-						state.html += '<div class="checkboxitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + '>';
-						state.html += '<input class="checkbox" type="checkbox" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.check ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
+						state.html += '<div class="checkboxitemwrap"' + (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '') + (field.hasOwnProperty('wrapattr') ? ' ' + field.wrapattr : '') + '>';
+						state.html += '<input class="checkbox" type="checkbox" id="' + EscapeHTML(id) + '" name="' + EscapeHTML(field.name) + '" value="' + EscapeHTML(field.value) + '"' + (field.check ? ' checked' : '') + (field.hasOwnProperty('attr') ? ' ' + field.attr : '') + (field.focus ? ' autofocus' : '') + ' />';
 						state.html += ' <label for="' + EscapeHTML(id) + '">' + EscapeHTML($this.Translate(field.display)) + '</label>';
 						state.html += '</div>';
 						state.html += '</div>';
@@ -803,8 +1016,8 @@
 						stylewidth = (field.hasOwnProperty('width') ? ' style="' + ($this.settings.responsive ? 'max-' : '') + 'width: ' + EscapeHTML(field.width) + ';"' : '');
 						styleheight = (field.hasOwnProperty('height') ? ' style="height: ' + EscapeHTML(field.height) + ';"' : '');
 
-						if (!field.hasOwnProperty('select'))  field.select = {};
-						else if (typeof field.select === 'string')
+						if (!field.hasOwnProperty('select') || field.select === null)  field.select = {};
+						else if (typeof field.select !== 'object')
 						{
 							var tempselect = {};
 
@@ -813,14 +1026,11 @@
 							field.select = tempselect;
 						}
 
-						state.html += '<div class="formitemdata">';
-
-						idbase = EscapeHTML(id);
-						if (mode === 'checkbox' || mode === 'radio')
+						// Convert options from unordered object to array(s) and fix confusing legacy name/value keys.
+						var options = [];
+						if (Array.isArray(field.options))
 						{
-							var idnum = 0;
-
-							for (var x = 0; x < field.options.length; x ++)
+							for (var x = 0; x < field.options.length; x++)
 							{
 								// Fix confusing legacy name/value keys.
 								if (field.options[x].name && field.options[x].value)
@@ -837,25 +1047,104 @@
 									}
 								}
 
+								if (field.options[x].values)
+								{
+									if (Array.isArray(field.options[x].values))
+									{
+										for (var x2 = 0; x2 < field.options[x].values.length; x2++)
+										{
+											// Fix confusing legacy name/value keys.
+											if (field.options[x].values[x2].name && field.options[x].values[x2].value)
+											{
+												field.options[x].values[x2].key = field.options[x].values[x2].name;
+												field.options[x].values[x2].display = field.options[x].values[x2].value;
+											}
+										}
+
+										options.push(field.options[x]);
+									}
+									else
+									{
+										var options2 = [];
+
+										for (var x2 in field.options[x].values)
+										{
+											if (field.options[x].values.hasOwnProperty(x2))  options2.push({ key: x2, display: field.options[x].values[x2] });
+										}
+
+										field.options[x].values = options2;
+
+										options.push(field.options[x]);
+									}
+								}
+								else
+								{
+									options.push(field.options[x]);
+								}
+							}
+						}
+						else
+						{
+							// Depending on the browser, objects may or may not maintain their original insertion order.
+							for (var x in field.options)
+							{
+								if (!field.options.hasOwnProperty(x))  continue;
+
+								if (Array.isArray(field.options[x]))
+								{
+									for (var x2 = 0; x2 < field.options[x].length; x2++)
+									{
+										// Fix confusing legacy name/value keys.
+										if (field.options[x].name && field.options[x].value)
+										{
+											field.options[x].key = field.options[x].name;
+											field.options[x].display = field.options[x].value;
+										}
+									}
+
+									options.push({ display: x, values: field.options[x] });
+								}
+								else if (typeof field.options[x] === 'object')
+								{
+									var options2 = [];
+
+									for (var x2 in field.options[x])
+									{
+										if (field.options[x].hasOwnProperty(x2))  options2.push({ key: x2, display: field.options[x][x2] });
+									}
+
+									options.push({ display: x, values: options2 });
+								}
+								else
+								{
+									options.push({ key: x, display: field.options[x] });
+								}
+							}
+						}
+
+						field.options = options;
+
+						state.html += '<div class="formitemdata">';
+
+						idbase = EscapeHTML(id);
+						if (mode === 'checkbox' || mode === 'radio')
+						{
+							var idnum = 0;
+
+							for (var x = 0; x < field.options.length; x++)
+							{
 								var display = field.options[x].display;
 
 								if (field.options[x].values && Array.isArray(field.options[x].values))
 								{
 									for (var x2 = 0; x2 < field.options[x].values.length; x2++)
 									{
-										// Fix confusing legacy name/value keys.
-										if (field.options[x].values[x2].name && field.options[x].values[x2].value)
-										{
-											field.options[x].values[x2].key = field.options[x].values[x2].name;
-											field.options[x].values[x2].display = field.options[x].values[x2].value;
-										}
-
 										var key2 = field.options[x].values[x2].key;
 										var display2 = field.options[x].values[x2].display;
 										var id2 = EscapeHTML(idbase + (idnum ? '_' + idnum : ''));
 
-										state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + '>';
-										state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(key2) + '"' + (field.select.hasOwnProperty(key2) ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
+										state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + (field.options[x].values[x2].hasOwnProperty('wrapattr') ? ' ' + field.options[x].values[x2].wrapattr : '') + '>';
+										state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(key2) + '"' + (field.select.hasOwnProperty(key2) ? ' checked' : '') + (field.options[x].values[x2].hasOwnProperty('attr') ? ' ' + field.options[x].values[x2].attr : '') + (field.focus ? ' autofocus' : '') + ' />';
 										state.html += ' <label for="' + id2 + '">' + EscapeHTML($this.Translate(display)) + ' - ' + (display2 == '' ? '&nbsp;' : EscapeHTML($this.Translate(display2))) + '</label>';
 										state.html += '</div>';
 
@@ -867,8 +1156,8 @@
 									var key = field.options[x].key;
 									var id2 = EscapeHTML(idbase + (idnum ? '_' + idnum : ''));
 
-									state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + '>';
-									state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(key) + '"' + (field.select.hasOwnProperty(key) ? ' checked' : '') + (field.focus ? ' autofocus' : '') + ' />';
+									state.html += '<div class="' + mode + 'itemwrap"' + stylewidth + (field.options[x].hasOwnProperty('wrapattr') ? ' ' + field.options[x].wrapattr : '') + '>';
+									state.html += '<input class="' + mode + '" type="' + mode + '" id="' + id2 + '" name="' + EscapeHTML(field.name + (mode === 'checkbox' ? '[]' : '')) + '" value="' + EscapeHTML(key) + '"' + (field.select.hasOwnProperty(key) ? ' checked' : '') + (field.options[x].hasOwnProperty('attr') ? ' ' + field.options[x].attr : '') + (field.focus ? ' autofocus' : '') + ' />';
 									state.html += ' <label for="' + id2 + '">' + (display == '' ? '&nbsp;' : EscapeHTML($this.Translate(display))) + '</label>';
 									state.html += '</div>';
 
@@ -878,26 +1167,11 @@
 						}
 						else
 						{
-							state.html += '<div class="selectitemwrap"' + stylewidth + '>';
-							state.html += '<select class="' + (field.multiple ? 'multi' : 'single') + '" id="' + EscapeHTML(idbase) + '" name="' + EscapeHTML(field.name + (field.multiple ? '[]' : '')) + '"' + (field.multiple ? ' multiple' : '') + styleheight + (field.focus ? ' autofocus' : '') + '>';
+							state.html += '<div class="selectitemwrap"' + stylewidth + (field.hasOwnProperty('wrapattr') ? ' ' + field.wrapattr : '') + '>';
+							state.html += '<select class="' + (field.multiple ? 'multi' : 'single') + '" id="' + EscapeHTML(idbase) + '" name="' + EscapeHTML(field.name + (field.multiple ? '[]' : '')) + '"' + (field.multiple ? ' multiple' : '') + styleheight + (field.hasOwnProperty('attr') ? ' ' + field.attr : '') + (field.focus ? ' autofocus' : '') + '>';
 
-							for (var x = 0; x < field.options.length; x ++)
+							for (var x = 0; x < field.options.length; x++)
 							{
-								// Fix confusing legacy name/value keys.
-								if (field.options[x].name && field.options[x].value)
-								{
-									if (Array.isArray(field.options[x].value))
-									{
-										field.options[x].display = field.options[x].key;
-										field.options[x].values = field.options[x].value;
-									}
-									else
-									{
-										field.options[x].key = field.options[x].name;
-										field.options[x].display = field.options[x].value;
-									}
-								}
-
 								var display = field.options[x].display;
 
 								if (field.options[x].values && Array.isArray(field.options[x].values))
@@ -906,17 +1180,10 @@
 
 									for (var x2 = 0; x2 < field.options[x].values.length; x2++)
 									{
-										// Fix confusing legacy name/value keys.
-										if (field.options[x].values[x2].name && field.options[x].values[x2].value)
-										{
-											field.options[x].values[x2].key = field.options[x].values[x2].name;
-											field.options[x].values[x2].display = field.options[x].values[x2].value;
-										}
-
 										var key2 = field.options[x].values[x2].key;
 										var display2 = field.options[x].values[x2].display;
 
-										state.html += '<option value="' + EscapeHTML(key2) + '"' + (field.select.hasOwnProperty(key2) ? ' selected' : '') + '>' + (display2 == '' ? '&nbsp;' : EscapeHTML($this.Translate(display2))) + '</option>';
+										state.html += '<option value="' + EscapeHTML(key2) + '"' + (field.select.hasOwnProperty(key2) ? ' selected' : '') + (field.options[x].values[x2].hasOwnProperty('attr') ? ' ' + field.options[x].values[x2].attr : '') + '>' + (display2 == '' ? '&nbsp;' : EscapeHTML($this.Translate(display2))) + '</option>';
 									}
 
 									state.html += '</optgroup>';
@@ -925,7 +1192,7 @@
 								{
 									var key = field.options[x].key;
 
-									state.html += '<option value="' + EscapeHTML(key) + '"' + (field.select.hasOwnProperty(key) ? ' selected' : '') + '>' + (display == '' ? '&nbsp;' : EscapeHTML($this.Translate(display))) + '</option>';
+									state.html += '<option value="' + EscapeHTML(key) + '"' + (field.select.hasOwnProperty(key) ? ' selected' : '') + (field.options[x].hasOwnProperty('attr') ? ' ' + field.options[x].attr : '') + '>' + (display == '' ? '&nbsp;' : EscapeHTML($this.Translate(display))) + '</option>';
 								}
 							}
 
@@ -1159,6 +1426,7 @@
 	// Merge down into FlexForms.
 	window.FlexForms.settings = window.FlexForms.Designer.settings;
 	window.FlexForms.EscapeHTML = EscapeHTML;
+	window.FlexForms.DeepClone = DeepClone;
 	window.FlexForms.FormatStr = FormatStr;
 	window.FlexForms.CreateNode = CreateNode;
 	window.FlexForms.DebounceAttributes = DebounceAttributes;

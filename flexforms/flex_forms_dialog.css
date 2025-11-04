@@ -8,7 +8,8 @@
 
 .ff_dialogwrap .ff_dialog_measure_em_size { display: inline-block; position: fixed; left: -9999px; width: 1em; height: 1em; }
 
-.ff_dialogwrap .ff_dialog_innerwrap { border: 1px solid #AAAAAA; background-color: #FFFFFF; position: relative; overflow: hidden; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; max-height: 90vh; }
+.ff_dialogwrap .ff_dialog_innerwrap { border: 1px solid #AAAAAA; background-color: #FFFFFF; position: relative; overflow: hidden; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; min-height: 10em; max-height: 90vh; }
+.ff_dialogwrap .ff_dialog_innerwrap.ff_dialog_allow_overflow { overflow: visible; }
 .ff_dialogwrap.ff_dialog_focused { -webkit-box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); -moz-box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); box-shadow: 0px 0px 9px 0px rgba(0, 0, 0, 0.30); }
 .ff_dialogwrap.ff_dialog_focused .ff_dialog_innerwrap { border: 1px solid #0063B1; }
 
@@ -16,14 +17,14 @@
 .ff_dialogwrap .ff_dialog_title { flex: 1; font-size: 0.85em; color: #999999; margin-left: 1em; margin-right: 1em; padding: 0.45em 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ff_dialogwrap.ff_dialog_focused .ff_dialog_title { color: inherit; }
 
-.ff_dialogwrap .ff_dialog_close { padding: 0.2em 0.8em; font-size: 1.2em; line-height: 1.1; color: #999999; background-color: #FFFFFF; outline: none; border: 0 none; }
+.ff_dialogwrap .ff_dialog_close { align-self: stretch; padding: 0.2em 0.8em; font-size: 1.2em; line-height: 1.1; color: #999999; background-color: #FFFFFF; outline: none; border: 0 none; }
 .ff_dialogwrap .ff_dialog_close::after { content: '\00D7'; }
 .ff_dialogwrap.ff_dialog_focused .ff_dialog_close { color: inherit; }
 .ff_dialogwrap .ff_dialog_close:hover, .ff_dialogwrap .ff_dialog_close:focus { color: #FFFFFF; background-color: #E81123; }
 
-.ff_dialogwrap .ff_formwrap { flex: 1; overflow: hidden; font-size: 0.85em; height: 100%; border-top: 1px solid #F0F0F0; }
-.ff_dialogwrap .ff_formwrapinner { overflow: hidden; height: 100%; }
-.ff_dialogwrap .ff_formwrapinner > form { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+.ff_dialogwrap .ff_formwrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; font-size: 0.85em; height: 100%; border-top: 1px solid #F0F0F0; }
+.ff_dialogwrap .ff_formwrapinner { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+.ff_dialogwrap .ff_formwrapinner > form { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
 .ff_dialogwrap .ff_formwrapinner .formfields { flex: 1; overflow: auto; width: 100%; height: 100%; }
 .ff_dialogwrap .ff_formwrapinner .formfieldsinner { padding: 0 1em 1em 1em; }
 .ff_dialogwrap .ff_formwrapinner .formsubmit { margin: 0; padding: 0.5em 0.6em 0.5em; border-top: 1px solid #E0E0E0; }
@@ -34,6 +35,7 @@
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap > tbody > tr > td .formitem { margin-top: 0; }
 
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem .formitemdata select { font-size: 1.0em; }
+.ff_dialogwrap .ff_formwrap .ff_formwrapinner .formitem .formitemdata textarea { font-size: 1.0em; }
 
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap { margin-top: 1.1em; }
 .ff_dialogwrap .ff_formwrap .ff_formwrapinner .fieldtablewrap > table.rowwrap { border-collapse: collapse; width: 100%; }

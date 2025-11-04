@@ -66,6 +66,8 @@
 	box-sizing: border-box;
 	width: 100%;
 	font-size: 0.9em;
+	padding: 0.2em 0.3em;
+	background-color: #FFFFFF;
 	border: 1px solid #BBBBBB;
 }
 

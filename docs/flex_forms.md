@@ -66,6 +66,13 @@ console.log(formvars);
 </script>
 ```
 
+FlexForms.PrepareXHR(options)
+--------------------------------
+
+Category:  Miscellaneous exports
+
+See:  [PrepareXHR Class](https://github.com/cubiclesoft/js-fileexplorer/blob/master/docs/prepare_xhr.md)
+
 FlexForms.addEventListener(eventname, callback)
 -----------------------------------------------
 
@@ -155,8 +162,8 @@ Returns:  Nothing.
 
 This function sets the internal cssoutput variable to indicate that certain CSS files have been already loaded so the class won't attempt to load them again.
 
-FlexForms.LoadCSS(name, url, cssmedia)
---------------------------------------
+FlexForms.LoadCSS(name, url, cssmedia, filever)
+-----------------------------------------------
 
 Category:  CSS Loader
 
@@ -164,7 +171,8 @@ Parameters:
 
 * name - A string containing a unique name for the CSS file to load.
 * url - A string containing a URL to the CSS file to load.
-* cssmedia - A string containing the media attribute to assign (default is null).
+* cssmedia - An optional string containing the media attribute to assign.
+* filever - An optional string containing the version of the file.  Used if the global version is not defined.
 
 Returns:  A DOM node containing the link tag.
 
@@ -246,6 +254,19 @@ Parameters:
 Returns:  A HTML-safe string.
 
 This function escapes input content for insertion into HTML.
+
+FlexForms.DeepClone(obj)
+------------------------
+
+Category:  Miscellaneous exports
+
+Parameters:
+
+* obj - An object to deep clone.
+
+Returns:  A deep cloned object.
+
+This function deep clones an object.
 
 FlexForms.CreateNode(tag, classes, attrs, styles)
 -------------------------------------------------
@@ -380,6 +401,19 @@ Returns:  A DOM node to attach to the DOM containing the message in a div wrappe
 
 This function generates a set of DOM nodes for the purpose of displaying a translated message to the user and returns it.
 
+FlexForms.Save(ffobjs)
+----------------------
+
+Category:  Modules
+
+Parameters:
+
+* ffobjs - An array of FlexForms objects.  FlexForms objects are special classes used by modules to manage module lifetime.
+
+Returns:  Nothing.
+
+This function calls `Save()` on each FlexForms object to save module data to the DOM before calling FlexForms.GetFormVars().
+
 FlexForms.GetFormVars(formelem, e)
 ----------------------------------
 
@@ -394,8 +428,35 @@ Returns:  An object containing the submitted form elements.
 
 This function creates a Javascript object from submitted form elements for client-side use (e.g. validation).
 
-FlexForms.Generate(parentelem, options, errors, request)
---------------------------------------------------------
+FlexForms.Cleanup(ffobjs)
+-------------------------
+
+Category:  Modules
+
+Parameters:
+
+* ffobjs - An array of FlexForms objects.  FlexForms objects are special classes used by modules to manage module lifetime.
+
+Returns:  Nothing.
+
+This function calls `Destroy()` on each FlexForms object to remove the module from the DOM and the array.
+
+FlexForms.AddNewObject(state, ffobj)
+------------------------------------
+
+Category:  Modules
+
+Parameters:
+
+* state - The current state object inside the Generate() call.
+* ffobj - A FlexForms object to add.  FlexForms objects are special classes used by modules to manage module lifetime.
+
+Returns:  Nothing.
+
+This function modifies the state for FlexForms objects during the Generate() call.  It is a convenience function.
+
+FlexForms.Generate(parentelem, options, errors, request, ffobjs)
+----------------------------------------------------------------
 
 Category:  Forms
 
@@ -405,12 +466,15 @@ Parameters:
 * options - An object containing options that defines the content to display.
 * errors - An object containing key/value pairs of error messages to display with fields (Default is null).
 * request - An object containing key/value pairs of simulated request data (Default is null).
+* ffobjs - An array containing FlexForms objects (Default is undefined).
 
 Returns:  A DOM node containing the form wrapper.
 
 This function takes in an input options object and optional error mapping and request objects and generates a HTML form and returns it.
 
 See the documentation for [PHP FlexForms Generate()](https://github.com/cubiclesoft/php-flexforms/blob/master/docs/flex_forms.md#flexformsgenerateoptions-errors--array-lastform--true) for a complete list of options.
+
+When using modules for FlexForms, the FlexForms objects (ffobjs) parameter must be an array that will be used track the objects over the lifetime of each module.  FlexForms Dialog transparently uses this feature.  Modules automatically populate the array during `FlexForms.Generate()` and the application is expected to hold onto the array for the lifetime of the form.
 
 FlexForms.GetSelectValues(data)
 -------------------------------

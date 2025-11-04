@@ -1,5 +1,5 @@
 // FlexForms Javascript Dialog class.
-// (C) 2022 CubicleSoft.  All Rights Reserved.
+// (C) 2025 CubicleSoft.  All Rights Reserved.
 
 (function() {
 	if (!window.hasOwnProperty('FlexForms') || !window.FlexForms.hasOwnProperty('Designer'))
@@ -17,11 +17,18 @@
 	var DebounceAttributes = window.FlexForms.DebounceAttributes;
 	var Translate = window.FlexForms.Translate;
 
+	var dialogs = {};
+	var nextid = 1;
+
 	var DialogInternal = function(parentelem, options) {
 		if (!(this instanceof DialogInternal))  return new DialogInternal(parentelem, options);
 
-		var triggers = {};
+		var id, triggers = {}, loaded = false, suspended = 0, suspendeddialogs = [];
 		var $this = this;
+
+		id = nextid;
+		nextid++;
+		dialogs[id] = $this;
 
 		var defaults = {
 			modal: true,
@@ -29,12 +36,20 @@
 			move: true,
 			resize: true,
 
+			autowidth: null,
+
 			title: '',
 			content: {},
 			errors: {},
 			request: {},
 
+			onupdatecontent: null,
+			onsuspend: null,
+			onresume: null,
 			onposition: null,
+			onlockresize: null,
+			onunlockresize: null,
+			onresized: null,
 			onsubmit: null,
 			onclose: null,
 			ondestroy: null,
@@ -45,6 +60,11 @@
 		$this.settings = Object.assign({}, defaults, options);
 
 		Object.assign(window.FlexForms.settings.langmap, $this.settings.langmap);
+
+		// Returns the dialog ID.
+		$this.GetID = function() {
+			return id;
+		};
 
 		// Internal functions.
 		var DispatchEvent = function(eventname, params) {
@@ -87,7 +107,13 @@
 		};
 
 		// Register settings callbacks.
+		if ($this.settings.onupdatecontent)  $this.addEventListener('updatecontent', $this.settings.onupdatecontent);
+		if ($this.settings.onsuspend)  $this.addEventListener('suspend', $this.settings.onsuspend);
+		if ($this.settings.onresume)  $this.addEventListener('resume', $this.settings.onresume);
 		if ($this.settings.onposition)  $this.addEventListener('position', $this.settings.onposition);
+		if ($this.settings.onlockresize)  $this.addEventListener('lock_resize', $this.settings.onlockresize);
+		if ($this.settings.onunlockresize)  $this.addEventListener('unlock_resize', $this.settings.onunlockresize);
+		if ($this.settings.onresized)  $this.addEventListener('resized', $this.settings.onresized);
 		if ($this.settings.onsubmit)  $this.addEventListener('submit', $this.settings.onsubmit);
 		if ($this.settings.onclose)  $this.addEventListener('close', $this.settings.onclose);
 		if ($this.settings.ondestroy)  $this.addEventListener('destroy', $this.settings.ondestroy);
@@ -117,15 +143,29 @@
 		elems.mainwrap.appendChild(elems.measureemsize);
 		elems.mainwrap.appendChild(elems.innerwrap);
 
+		// FlexForms objects created by modules.
+		var ffobjs = [];
+		$this.GetFlexFormsObjects = function() {
+			return ffobjs;
+		};
+
 		// Handle submit buttons.
 		var SubmitHandler = function(e) {
 			if (!e.isTrusted)  return;
 
 			e.preventDefault();
 
+			// Save FlexForms object state changes.
+			FlexForms.Save(ffobjs);
+
 			$this.settings.request = FlexForms.GetFormVars(elems.formnode, e);
 
 			DispatchEvent('submit', [$this.settings.request, elems.formnode, e, lastactiveelem]);
+		};
+
+		// Returns the internal elements object for easier access to various elements.
+		$this.GetElements = function() {
+			return elems;
 		};
 
 		// Useful helper function to return whether or not the errors object contains errors.
@@ -137,21 +177,22 @@
 		$this.UpdateContent = function() {
 			if (elems.formwrap)  elems.formwrap.parentNode.removeChild(elems.formwrap);
 
-			elems.formwrap = FlexForms.Generate(elems.innerwrap, $this.settings.content, $this.settings.errors, $this.settings.request);
+			elems.formwrap = FlexForms.Generate(elems.innerwrap, $this.settings.content, $this.settings.errors, $this.settings.request, ffobjs);
 			elems.formnode = elems.formwrap.querySelector('form');
 
-			elems.formnode.addEventListener('submit', SubmitHandler);
+			if (elems.formnode)  elems.formnode.addEventListener('submit', SubmitHandler);
+
+			// Attach this dialog to FlexForms objects.
+			for (var x = 0; x < ffobjs.length; x++)
+			{
+				if (typeof ffobjs[x].SetDialog === 'function')  ffobjs[x].SetDialog.call($this, $this);
+			}
+
+			DispatchEvent('updatecontent', elems.formnode);
 		};
 
 		if ($this.settings.modal)  parentelem.appendChild(elems.overlay);
 		parentelem.appendChild(elems.mainwrap);
-
-		$this.UpdateContent();
-
-		// Returns the internal elements object for easier access to various elements.
-		$this.GetElements = function() {
-			return elems;
-		};
 
 		// Set up focusing rules.
 		var lastactiveelem = document.activeElement;
@@ -161,14 +202,23 @@
 			if (!e.isTrusted)  return;
 
 			var node = e.target;
-			while (node && node !== elems.mainwrap)  node = node.parentNode;
+			while (node && node !== elems.mainwrap && node !== elems.overlay && node.parentNode !== parentelem)  node = node.parentNode;
+
+			if (node && node !== elems.mainwrap && node !== elems.overlay)
+			{
+				var node2 = elems.mainwrap.nextSibling;
+
+				while (node2 && node2 !== node)  node2 = node2.nextSibling;
+
+				if (node2 === node)  node = elems.mainwrap;
+			}
 
 			if (node === elems.mainwrap)  elems.mainwrap.classList.add('ff_dialog_focused');
 			else
 			{
 				if ($this.settings.modal)
 				{
-					hasfocus = false;
+					if (node !== elems.overlay)  hasfocus = false;
 
 					e.preventDefault();
 
@@ -212,14 +262,14 @@
 			}
 
 			var node = e.target;
-			while (node && node !== elems.mainwrap)  node = node.parentNode;
+			while (node && node !== elems.mainwrap && node.parentNode !== parentelem)  node = node.parentNode;
 
 			if (node === elems.mainwrap)
 			{
 				elems.mainwrap.classList.add('ff_dialog_focused');
 
 				// Move this dialog to the top of the stack.
-				if (!hasfocus)
+				if (!hasfocus && !$this.settings.modal)
 				{
 					window.removeEventListener('focus', MainWrapFocusHandler, true);
 
@@ -236,7 +286,16 @@
 			}
 			else if ($this.settings.modal)
 			{
-				elems.mainwrap.focus();
+				if (node && node !== elems.mainwrap)
+				{
+					var node2 = elems.mainwrap.nextSibling;
+
+					while (node2 && node2 !== node)  node2 = node2.nextSibling;
+
+					if (node2 === node)  node = elems.mainwrap;
+				}
+
+				if (node !== elems.mainwrap)  elems.mainwrap.focus();
 			}
 			else
 			{
@@ -248,37 +307,162 @@
 
 		window.addEventListener('focus', MainWrapFocusHandler, true);
 
+		// Detaches the dialog from the DOM and any associated event handlers.
+		// The modal overlay, if attached, remains as the main intent of Suspend() is to allow other modal/non-modal dialogs to function.
+		$this.Suspend = function() {
+			if (!suspended)
+			{
+				window.removeEventListener('focus', MainWrapFocusHandler, true);
+				window.removeEventListener('mousedown', MainWrapMouseBlurHandler, true);
+				window.removeEventListener('blur', MainWrapWindowBlurHandler, true);
+				window.removeEventListener('focus', MainWrapFocusHandler, true);
+
+				window.removeEventListener('resize', dialogresizewatch.Start, true);
+
+				parentelem.removeChild(elems.mainwrap);
+
+				DispatchEvent('suspend');
+			}
+
+			suspended++;
+		};
+
+		// Attaches the dialog to the DOM and restores associated event handlers.
+		$this.Resume = function() {
+			if (suspended > 0)
+			{
+				suspended--;
+
+				if (!suspended)
+				{
+					parentelem.appendChild(elems.mainwrap);
+
+					window.addEventListener('focus', MainWrapFocusHandler, true);
+					window.addEventListener('mousedown', MainWrapMouseBlurHandler, true);
+					window.addEventListener('blur', MainWrapWindowBlurHandler, true);
+					window.addEventListener('focus', MainWrapFocusHandler, true);
+
+					window.addEventListener('resize', dialogresizewatch.Start, true);
+
+					if (loaded)  $this.CenterDialog();
+					else  LoadedHandler();
+
+					DispatchEvent('resume');
+				}
+			}
+		};
+
+		// Returns whether or not this dialog is suspended.
+		$this.IsSuspended = function() {
+			return suspended;
+		};
+
 		// Some internal tracking variables to control dialog position and size.
-		var manualsize = false, manualmove = false;
-		var screenwidth, screenheight, currdialogstyle, dialogwidth, dialogheight;
+		var manualsize = false, manualmove = false, resizelocked = 0, resizelockmap = {}, postunlockcallbacks = {};
+		var updatesizesframe = null, screenwidth, screenheight, currdialogstyle, dialogwidth, dialogheight;
 
-		// Adjust the dialog and recalculate size information.
+		$this.LockResize = function(name) {
+			if (!resizelocked)  DispatchEvent('lock_resize');
+
+			resizelocked++;
+
+			if (!resizelockmap.hasOwnProperty(name))  resizelockmap[name] = 1;
+			else  resizelockmap[name]++;
+		};
+
+		$this.UnlockResize = function(name) {
+			if (!resizelockmap.hasOwnProperty(name))  return;
+
+			resizelockmap[name]--;
+
+			if (!resizelockmap[name])  delete resizelockmap[name];
+
+			if (resizelocked > 0)
+			{
+				resizelocked--;
+
+				if (!resizelocked)
+				{
+					DispatchEvent('unlock_resize');
+
+					for (var x in postunlockcallbacks)
+					{
+						if (postunlockcallbacks.hasOwnProperty(x))  postunlockcallbacks[x].call($this);
+					}
+
+					postunlockcallbacks = {};
+				}
+			}
+		};
+
+		var ResetUpdateSizesFrame = function() {
+			updatesizesframe = null;
+		};
+
+		// Adjust the dialog and recalculate size information.  Limited to one call per frame.
 		$this.UpdateSizes = function() {
-			elems.mainwrap.classList.remove('ff_dialogwrap_small');
+			if (resizelocked > 0)
+			{
+				postunlockcallbacks['UpdateSizes'] = $this.UpdateSizes;
 
-			if (elems.mainwrap.offsetWidth / elems.measureemsize.offsetWidth < 27)  elems.mainwrap.classList.add('ff_dialogwrap_small');
+				return;
+			}
+
+			if (updatesizesframe !== null)  return;
+
+			updatesizesframe = window.requestAnimationFrame(ResetUpdateSizesFrame);
+
+			elems.mainwrap.classList.remove('ff_dialogwrap_small');
 
 			screenwidth = (document.documentElement.clientWidth || document.body.clientWidth || window.innerWidth);
 			screenheight = (document.documentElement.clientHeight || document.body.clientHeight || window.innerHeight);
 
-			if (!manualsize)  elems.mainwrap.style.height = null;
+			elems.innerwrap.style.maxHeight = null;
+
+			if (!manualsize)
+			{
+				elems.mainwrap.style.width = $this.settings.autowidth;
+				elems.mainwrap.style.height = null;
+			}
 
 			currdialogstyle = elems.mainwrap.currentStyle || window.getComputedStyle(elems.mainwrap);
-			dialogwidth = elems.mainwrap.offsetWidth + parseFloat(currdialogstyle.marginLeft) + parseFloat(currdialogstyle.marginRight);
-			dialogheight = elems.mainwrap.offsetHeight + parseFloat(currdialogstyle.marginTop) + parseFloat(currdialogstyle.marginBottom);
+			dialogwidth = Math.ceil(elems.mainwrap.offsetWidth + parseFloat(currdialogstyle.marginLeft) + parseFloat(currdialogstyle.marginRight));
 
-			if (!manualsize && dialogheight >= screenheight)
+			if (!manualsize && dialogwidth + 2 >= screenwidth)
 			{
-				elems.mainwrap.style.height = (screenheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom) - 2) + 'px';
+				elems.mainwrap.style.width = Math.ceil(screenwidth - parseFloat(currdialogstyle.marginLeft) - parseFloat(currdialogstyle.marginRight) - 2) + 'px';
 
-				dialogheight = screenheight;
+				dialogwidth = screenwidth - 2;
+			}
+
+			if (elems.mainwrap.offsetWidth / elems.measureemsize.offsetWidth < 27)  elems.mainwrap.classList.add('ff_dialogwrap_small');
+
+			currdialogstyle = elems.mainwrap.currentStyle || window.getComputedStyle(elems.mainwrap);
+			dialogheight = Math.ceil(elems.mainwrap.offsetHeight + parseFloat(currdialogstyle.marginTop) + parseFloat(currdialogstyle.marginBottom));
+
+			if (!manualsize && dialogheight + 2 >= screenheight)
+			{
+				elems.mainwrap.style.height = Math.ceil(screenheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom) - 2) + 'px';
+
+				dialogheight = screenheight - 2;
 			}
 		};
 
-		// Snaps the dialog so it fits on the screen.
-		$this.SnapToScreen = function() {
-			var currleft = elems.mainwrap.offsetLeft - parseFloat(currdialogstyle.marginLeft);
-			var currtop = elems.mainwrap.offsetTop - parseFloat(currdialogstyle.marginTop);
+		// Snaps the dialog so it fits on the screen.  Limited to one call per frame.
+		$this.SnapToScreen = function(resetscroll) {
+			if (resizelocked > 0)
+			{
+				postunlockcallbacks['SnapToScreen'] = $this.SnapToScreen;
+
+				return;
+			}
+
+			if (updatesizesframe !== null)  return;
+
+			var formfieldsnode = (elems.formnode ? elems.formnode.querySelector('.formfields') : null);
+			var currscrolltop = (!resetscroll && formfieldsnode ? formfieldsnode.scrollTop : 0);
+			var currleft = Math.floor(elems.mainwrap.offsetLeft - parseFloat(currdialogstyle.marginLeft));
+			var currtop = Math.floor(elems.mainwrap.offsetTop - parseFloat(currdialogstyle.marginTop));
 
 			elems.mainwrap.style.left = '0px';
 			elems.mainwrap.style.top = '0px';
@@ -292,25 +476,48 @@
 
 			elems.mainwrap.style.left = currleft + 'px';
 			elems.mainwrap.style.top = currtop + 'px';
-			elems.mainwrap.style.height = (dialogheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom)) + 'px';
+			if (manualsize)  elems.mainwrap.style.height = Math.ceil(dialogheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom)) + 'px';
+			else  elems.innerwrap.style.maxHeight = Math.ceil(Math.min(parseFloat(currdialogstyle.maxHeight), screenheight - currtop - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom))) + 'px';
+
+			if (formfieldsnode)  formfieldsnode.scrollTop = currscrolltop;
 
 			DispatchEvent('position', elems.mainwrap);
 		};
 
-		// Move the dialog to the center of the screen unless it has been manually moved.
-		$this.CenterDialog = function() {
-			if (manualmove)  $this.SnapToScreen();
+		// Move the dialog to the center of the screen unless it has been manually moved.  Limited to one call per frame.
+		$this.CenterDialog = function(resetscroll) {
+			if (resizelocked > 0)
+			{
+				postunlockcallbacks['CenterDialog'] = $this.CenterDialog;
+
+				return;
+			}
+
+			if (updatesizesframe !== null)  return;
+
+			if (manualmove)  $this.SnapToScreen(resetscroll);
 			else
 			{
+				var formfieldsnode = (elems.formnode ? elems.formnode.querySelector('.formfields') : null);
+				var currscrolltop = (!resetscroll && formfieldsnode ? formfieldsnode.scrollTop : 0);
+
 				$this.UpdateSizes();
 
-				elems.mainwrap.style.left = ((screenwidth / 2) - (dialogwidth / 2)) + 'px';
-				elems.mainwrap.style.top = ((screenheight / 2) - (dialogheight / 2)) + 'px';
-				elems.mainwrap.style.height = (dialogheight - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom)) + 'px';
+				var currleft = Math.floor((screenwidth / 2) - (dialogwidth / 2));
+				var currtop = Math.floor((screenheight / 2) - (dialogheight / 2));
+
+				elems.mainwrap.style.left = currleft + 'px';
+				elems.mainwrap.style.top = currtop + 'px';
+				elems.innerwrap.style.maxHeight = Math.min(parseFloat(currdialogstyle.maxHeight), screenheight - currtop - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom) - 2) + 'px';
+
+				if (formfieldsnode)  formfieldsnode.scrollTop = currscrolltop;
 
 				DispatchEvent('position', elems.mainwrap);
+				DispatchEvent('resized', elems.mainwrap);
 			}
 		};
+
+		var moveanchorpos = null, resizeclass, resizelocation, resizeanchorpos = null;
 
 		// Set up an offsetWidth/offsetHeight attribute watcher that calls CenterDialog().
 		var dialogresizewatch = new DebounceAttributes({
@@ -326,36 +533,82 @@
 
 		window.addEventListener('resize', dialogresizewatch.Start, true);
 
+		// Monitor resizing of the main element.
+		var MainWrapResizeHandler = function(e) {
+			if (updatesizesframe === null && dialogresizewatch && moveanchorpos === null && resizeanchorpos === null && elems.mainwrap.offsetHeight !== dialogresizewatch.settings.watchers[1].val)
+			{
+				dialogresizewatch.Start();
+			}
+		};
+
+		var mainwrapresizeobserver = new ResizeObserver(MainWrapResizeHandler);
+
+		mainwrapresizeobserver.observe(elems.mainwrap);
+
+		var LoadedFocus = function() {
+			if (updatesizesframe === null)
+			{
+				$this.CenterDialog();
+
+				elems.mainwrap.classList.add('ff_dialog_focused');
+
+				// Bypass the hasfocus checks in MainWrapFocusHandler.
+				hasfocus = true;
+
+				var node = document.activeElement;
+				while (node && node !== elems.mainwrap)  node = node.parentNode;
+
+				if (node !== elems.mainwrap)  elems.mainwrap.focus();
+			}
+		};
+
 		var LoadedHandler = function() {
-			$this.CenterDialog();
+			if (!loaded && !suspended)
+			{
+				window.FlexForms.removeEventListener('done', LoadedHandler);
 
-			elems.mainwrap.classList.add('ff_dialog_focused');
+				// Suspend other dialogs that would cause conflicts.
+				if ($this.settings.modal)
+				{
+					for (var x in dialogs)
+					{
+						if ($this !== dialogs[x])
+						{
+							dialogs[x].Suspend();
 
-			// Bypass the hasfocus checks in MainWrapFocusHandler.
-			hasfocus = true;
+							suspendeddialogs.push(x);
+						}
+					}
+				}
+				else
+				{
+					for (var x in dialogs)
+					{
+						if ($this !== dialogs[x] && dialogs[x].settings.modal)
+						{
+							dialogs[x].Suspend();
 
-			var node = document.activeElement;
-			while (node && node !== elems.mainwrap)  node = node.parentNode;
+							suspendeddialogs.push(x);
+						}
+					}
+				}
 
-			if (node !== elems.mainwrap)  elems.mainwrap.focus();
+				LoadedFocus();
+
+				loaded = true;
+			}
 		};
 
 		window.FlexForms.addEventListener('done', LoadedHandler);
 
-		window.FlexForms.LoadCSS('formdialogcss', window.FlexForms.settings.supporturl + '/flex_forms_dialog.css');
-
 		// Manual move.
-		var moveanchorpos;
 		var MoveDialogDragHandler = function(e) {
 			if (!e.isTrusted)  return;
-
-			// Prevent content selections.
-			e.preventDefault();
 
 			var newanchorpos;
 			var rect = elems.title.getBoundingClientRect();
 
-			if (e.type === 'touchstart')
+			if (e.type === 'touchmove')
 			{
 				newanchorpos = {
 					x: e.touches[0].clientX - rect.left,
@@ -364,14 +617,17 @@
 			}
 			else
 			{
+				// Prevent content selections.
+				e.preventDefault();
+
 				newanchorpos = {
 					x: e.clientX - rect.left,
 					y: e.clientY - rect.top
 				};
 			}
 
-			var newleft = elems.mainwrap.offsetLeft - parseFloat(currdialogstyle.marginLeft) + newanchorpos.x - moveanchorpos.x;
-			var newtop = elems.mainwrap.offsetTop - parseFloat(currdialogstyle.marginTop) + newanchorpos.y - moveanchorpos.y;
+			var newleft = Math.floor(elems.mainwrap.offsetLeft - parseFloat(currdialogstyle.marginLeft) + newanchorpos.x - moveanchorpos.x);
+			var newtop = Math.floor(elems.mainwrap.offsetTop - parseFloat(currdialogstyle.marginTop) + newanchorpos.y - moveanchorpos.y);
 
 			if (newleft < 0)  newleft = 0;
 			if (newtop < 0)  newtop = 0;
@@ -388,6 +644,8 @@
 
 		var MoveDialogEndHandler = function(e) {
 			if (e && !e.isTrusted)  return;
+
+			if (e)  $this.CenterDialog();
 
 			moveanchorpos = null;
 
@@ -436,7 +694,6 @@
 		elems.title.addEventListener('touchstart', StartMoveDialogHandler);
 
 		// Manual resize.
-		var resizeclass, resizelocation, resizeanchorpos;
 		var UpdateResizeHoverClass = function(e) {
 			if (!e.isTrusted || resizeanchorpos)  return;
 
@@ -489,13 +746,10 @@
 		var ResizeDialogDragHandler = function(e) {
 			if (!e.isTrusted)  return;
 
-			// Prevent content selections.
-			e.preventDefault();
-
 			var newanchorpos;
 			var rect = elems.resizer.getBoundingClientRect();
 
-			if (e.type === 'touchstart')
+			if (e.type === 'touchmove')
 			{
 				newanchorpos = {
 					x: e.touches[0].clientX - rect.left,
@@ -504,6 +758,9 @@
 			}
 			else
 			{
+				// Prevent content selections.
+				e.preventDefault();
+
 				newanchorpos = {
 					x: e.clientX - rect.left,
 					y: e.clientY - rect.top
@@ -551,17 +808,17 @@
 
 			if (resizelocation === 6 || resizelocation === 7 || resizelocation === 8)
 			{
-				if (resizeanchorpos.height + diffy >= parseFloat(currdialogstyle.maxHeight))  diffx = parseFloat(currdialogstyle.maxHeight) - resizeanchorpos.height;
+				if (resizeanchorpos.height + diffy >= parseFloat(currdialogstyle.maxHeight))  diffy = parseFloat(currdialogstyle.maxHeight) - resizeanchorpos.height;
 				else if (newtop + resizeanchorpos.height + parseFloat(currdialogstyle.marginTop) + parseFloat(currdialogstyle.marginBottom) + diffy >= screenheight)  diffy = screenheight - newtop - resizeanchorpos.height - parseFloat(currdialogstyle.marginTop) - parseFloat(currdialogstyle.marginBottom);
 				else if (resizeanchorpos.height + diffy < parseFloat(currdialogstyle.minHeight))  diffy = parseFloat(currdialogstyle.minHeight) - resizeanchorpos.height;
 
 				newheight = resizeanchorpos.height + diffy;
 			}
 
-			elems.mainwrap.style.left = newleft + 'px';
-			elems.mainwrap.style.top = newtop + 'px';
-			elems.mainwrap.style.width = newwidth + 'px';
-			elems.mainwrap.style.height = newheight + 'px';
+			elems.mainwrap.style.left = Math.floor(newleft) + 'px';
+			elems.mainwrap.style.top = Math.floor(newtop) + 'px';
+			elems.mainwrap.style.width = Math.ceil(newwidth) + 'px';
+			elems.mainwrap.style.height = Math.ceil(newheight) + 'px';
 
 			manualmove = true;
 			manualsize = true;
@@ -583,6 +840,8 @@
 			window.removeEventListener('blur', ResizeDialogEndHandler, true);
 
 			$this.SnapToScreen();
+
+			DispatchEvent('resized', elems.mainwrap);
 		};
 
 		var StartResizeDialogHandler = function(e) {
@@ -629,6 +888,113 @@
 		elems.resizer.addEventListener('touchstart', StartResizeDialogHandler);
 		elems.resizer.addEventListener('mousedown', StartResizeDialogHandler);
 
+		// Prevent background scrolling for modal dialogs.
+		var lastdialogtouchevent = null, dialogpreventscroll = false;
+		var DialogScrollHandler = function(e) {
+			if (!e.isTrusted || !$this.settings.modal)  return;
+
+			if (e.type === 'touchstart')
+			{
+				lastdialogtouchevent = {
+					num: e.touches.length,
+					y: e.touches[0].clientY
+				};
+
+				dialogpreventscroll = false;
+
+				return;
+			}
+
+			if (e.type === 'touchend')
+			{
+				lastdialogtouchevent = null;
+
+				return;
+			}
+
+			var node = e.target;
+			var wouldprevent;
+
+			do
+			{
+				wouldprevent = false;
+
+				while (node && node !== elems.innerwrap && node.scrollHeight < node.clientHeight + 1)  node = node.parentNode;
+
+				if (node && node !== elems.innerwrap)
+				{
+					// Detect start/end of overflow scroll.
+					if (e.type === 'wheel' && e.deltaMode >= 0 && ((e.deltaY < 0 && node.scrollTop <= 0) || (e.deltaY > 0 && node.scrollTop + 1 >= node.scrollHeight - node.clientHeight)))  wouldprevent = true;
+
+					if (e.type === 'touchmove' && !dialogpreventscroll)
+					{
+						var currtouchevent = {
+							num: e.touches.length,
+							y: e.touches[0].clientY
+						};
+
+						var diffy = currtouchevent.y - lastdialogtouchevent.y;
+
+						if (currtouchevent.num > 1 || lastdialogtouchevent.num > 1 || Math.abs(diffy) < 1 || (diffy > 0 && node.scrollTop <= 0) || (diffy < 0 && node.scrollTop + 1 >= node.scrollHeight - node.clientHeight))
+						{
+							wouldprevent = true;
+						}
+					}
+
+					if (wouldprevent)  node = node.parentNode;
+				}
+			} while (wouldprevent);
+
+			if (node)
+			{
+				var node2 = e.target;
+				while (node2 && node2 !== elems.innerwrap && node2.parentNode !== parentelem)  node2 = node2.parentNode;
+
+				if (node2 && node2 !== elems.innerwrap)
+				{
+					var node3 = elems.mainwrap.nextSibling;
+
+					while (node3 && node3 !== node2)  node3 = node3.nextSibling;
+
+					if (node3 === node2)  node2 = elems.innerwrap;
+				}
+
+				if (node2 !== elems.innerwrap)  e.preventDefault();
+				else
+				{
+					// Detect start/end of overflow scroll.
+					if (e.type === 'wheel' && e.deltaMode >= 0 && ((e.deltaY < 0 && node.scrollTop <= 0) || (e.deltaY > 0 && node.scrollTop + 1 >= node.scrollHeight - node.clientHeight)))  e.preventDefault();
+
+					if (e.type === 'touchmove')
+					{
+						if (dialogpreventscroll)  e.preventDefault();
+						else
+						{
+							var currtouchevent = {
+								num: e.touches.length,
+								y: e.touches[0].clientY
+							};
+
+							var diffy = currtouchevent.y - lastdialogtouchevent.y;
+
+							if (currtouchevent.num > 1 || lastdialogtouchevent.num > 1 || Math.abs(diffy) < 1 || (diffy > 0 && node.scrollTop <= 0) || (diffy < 0 && node.scrollTop + 1 >= node.scrollHeight - node.clientHeight))
+							{
+								e.preventDefault();
+								dialogpreventscroll = true;
+							}
+
+							lastdialogtouchevent = currtouchevent;
+						}
+					}
+				}
+			}
+		};
+
+		window.addEventListener('wheel', DialogScrollHandler, { capture: true, passive: false });
+		window.addEventListener('touchstart', DialogScrollHandler, true);
+		window.addEventListener('touchmove', DialogScrollHandler, { capture: true, passive: false });
+		window.addEventListener('touchend', DialogScrollHandler, true);
+
 		// Call close callbacks for the dialog.
 		$this.Close = function(e) {
 			if (e && !e.isTrusted)  return;
@@ -639,8 +1005,10 @@
 		elems.closebutton.addEventListener('click', $this.Close);
 
 		var MainKeyHandler = function(e) {
+			// Escape.
 			if (e.keyCode == 27)  $this.Close(e);
 
+			// Enter/Return.
 			if (e.keyCode == 13 && e.target === elems.mainwrap)
 			{
 				// Locate the first button.
@@ -648,6 +1016,9 @@
 
 				if (buttonnode)
 				{
+					// Save FlexForms object state changes.
+					FlexForms.Save(ffobjs);
+
 					var tempevent = {
 						isTrusted: true,
 						target: elems.formnode,
@@ -665,13 +1036,30 @@
 
 		// Destroy this instance.
 		$this.Destroy = function() {
+			// Run FlexForms plugin cleanup routines to avoid memory leaks.
+			FlexForms.Cleanup(ffobjs);
+
 			DispatchEvent('destroy');
 
+			delete dialogs[id];
+
 			triggers = {};
+
+			resizelocked = 1;
 
 			window.removeEventListener('mousedown', MainWrapMouseBlurHandler, true);
 			window.removeEventListener('blur', MainWrapWindowBlurHandler, true);
 			window.removeEventListener('focus', MainWrapFocusHandler, true);
+
+			if (updatesizesframe !== null)
+			{
+				window.cancelAnimationFrame(updatesizesframe);
+
+				updatesizesframe = null;
+			}
+
+			mainwrapresizeobserver.unobserve(elems.mainwrap);
+			mainwrapresizeobserver = null;
 
 			window.removeEventListener('resize', dialogresizewatch.Start, true);
 
@@ -689,7 +1077,12 @@
 			elems.resizer.removeEventListener('touchstart', StartResizeDialogHandler);
 			elems.resizer.removeEventListener('mousedown', StartResizeDialogHandler);
 
-			elems.formnode.removeEventListener('submit', SubmitHandler);
+			window.removeEventListener('wheel', DialogScrollHandler, { capture: true, passive: false });
+			window.removeEventListener('touchstart', DialogScrollHandler, true);
+			window.removeEventListener('touchmove', DialogScrollHandler, { capture: true, passive: false });
+			window.removeEventListener('touchend', DialogScrollHandler, true);
+
+			if (elems.formnode)  elems.formnode.removeEventListener('submit', SubmitHandler);
 
 			elems.closebutton.removeEventListener('click', $this.Close);
 
@@ -697,14 +1090,25 @@
 
 			for (var node in elems)
 			{
-				if (elems[node].parentNode)  elems[node].parentNode.removeChild(elems[node]);
+				if (elems[node] && elems[node].parentNode)  elems[node].parentNode.removeChild(elems[node]);
 			}
 
 			currdialogstyle = null;
 
+			// Restore suspended dialogs.
+			suspendeddialogs.forEach(function(x) {
+				if (dialogs[x])  dialogs[x].Resume();
+			});
+
+			suspendeddialogs = null;
+
 			// Remaining cleanup.
 			elems = null;
 			lastactiveelem = null;
+			suspended = 0;
+
+			resizelockmap = {};
+			postunlockcallbacks = {};
 
 			$this.settings = Object.assign({}, defaults);
 
@@ -712,6 +1116,24 @@
 			parentelem = null;
 			options = null;
 		};
+
+		// Perform the initial dialog update.
+		updatesizesframe = window.requestAnimationFrame(ResetUpdateSizesFrame);
+
+		$this.UpdateContent();
+
+		window.FlexForms.LoadCSS('formdialogcss', window.FlexForms.settings.supporturl + '/flex_forms_dialog.css', undefined, '20250818-01');
+
+		if (updatesizesframe !== null)
+		{
+			window.cancelAnimationFrame(updatesizesframe);
+
+			updatesizesframe = null;
+
+			if (loaded && !suspended)  LoadedFocus();
+		}
+
+		MainWrapResizeHandler();
 	};
 
 	var AlertDialogInternal = function(title, content, closecallback, timeout) {
